@@ -5,8 +5,15 @@ import { formatAriary } from '../../lib/formatAriary.js';
 
 export default function Dashboard() {
   const health = useQuery({ queryKey: ['health'], queryFn: () => apiRequest('/health'), retry: false });
+  const summary = useQuery({
+    queryKey: ['dashboard-summary'],
+    queryFn: async () => (await apiRequest('/dashboard/summary')).data,
+    enabled: Boolean(localStorage.getItem('grossiste.token')),
+    retry: false
+  });
   const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
     .format(new Date()).toLocaleUpperCase('fr-FR');
+  const metrics = summary.data;
 
   return (
     <>
@@ -19,9 +26,9 @@ export default function Dashboard() {
         <div className="band-index">01 <span>/</span> 04</div>
       </section>
       <section className="metrics-grid" aria-label="Indicateurs">
-        <article className="metric-panel metric-primary"><div className="metric-top"><span>VENTES DU JOUR</span><span className="metric-arrow">↗</span></div><strong className="metric-value">—</strong><div className="metric-foot">Aucune donnée enregistrée <span>01</span></div></article>
-        <article className="metric-panel"><div className="metric-top"><span>ARTICLES EN STOCK</span><span className="metric-symbol">▤</span></div><strong className="metric-value">—</strong><div className="metric-foot">Catalogue à renseigner <span>02</span></div></article>
-        <article className="metric-panel"><div className="metric-top"><span>CRÉANCES CLIENTS</span><span className="metric-symbol">◷</span></div><strong className="metric-value">—</strong><div className="metric-foot">Solde à calculer <span>03</span></div></article>
+        <article className="metric-panel metric-primary"><div className="metric-top"><span>VENTES DU JOUR</span><span className="metric-arrow">↗</span></div><strong className="metric-value">{metrics ? formatAriary(metrics.ventes_du_jour) : '—'}</strong><div className="metric-foot">{metrics ? 'Ventes validées' : 'Connexion requise'} <span>01</span></div></article>
+        <article className="metric-panel"><div className="metric-top"><span>ARTICLES EN CATALOGUE</span><span className="metric-symbol">▤</span></div><strong className="metric-value">{metrics?.nombre_produits ?? '—'}</strong><div className="metric-foot">{metrics ? `${metrics.nombre_alertes_stock} alerte(s) de stock` : 'Connexion requise'} <span>02</span></div></article>
+        <article className="metric-panel"><div className="metric-top"><span>CRÉANCES CLIENTS</span><span className="metric-symbol">◷</span></div><strong className="metric-value">{metrics ? formatAriary(metrics.creances_clients) : '—'}</strong><div className="metric-foot">{metrics ? `${metrics.achats_en_cours} achat(s) en cours` : 'Connexion requise'} <span>03</span></div></article>
         <article className="metric-panel metric-dark"><div className="metric-top"><span>ÉTAT DE L’API</span><span className="api-light" /></div><strong className="metric-value metric-api">{health.isSuccess ? 'En ligne' : health.isPending ? 'Connexion…' : 'Hors ligne'}</strong><div className="metric-foot">{health.isSuccess ? 'Serveur accessible' : 'Données locales disponibles'} <span>04</span></div></article>
       </section>
       <section className="lower-grid">

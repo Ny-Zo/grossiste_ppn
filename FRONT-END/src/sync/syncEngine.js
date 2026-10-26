@@ -10,17 +10,40 @@ export async function synchronize() {
 
   try {
     const pending = await getPendingOperations();
-    if (pending.length) {
+    const productOperations = new Set(['CREATE_PRODUCT', 'UPDATE_PRODUCT', 'DELETE_PRODUCT']);
+
+    for (const operation of pending) {
+      if (!productOperations.has(operation.type)) continue;
+      const { id, ...product } = operation.payload;
+
+      if (operation.type === 'DELETE_PRODUCT') {
+        await apiRequest(`/products/${id}`, { method: 'DELETE' });
+        await localDb.products.delete(id);
+      } else {
+        const isCreate = operation.type === 'CREATE_PRODUCT';
+        const result = await apiRequest(isCreate ? '/products' : `/products/${id}`, {
+          method: isCreate ? 'POST' : 'PATCH',
+          body: JSON.stringify(isCreate ? { ...product, id } : product)
+        });
+        const cached = await localDb.products.get(id);
+        await localDb.products.put({ ...cached, ...result.data, sync_status: 'synced' });
+      }
+
+      await removeOperation(operation.id);
+    }
+
+    const remaining = await getPendingOperations();
+    if (remaining.length) {
       await apiRequest('/sync/push', {
         method: 'POST',
-        body: JSON.stringify({ operations: pending.map(({ opId, type, payload, createdAt }) => ({
+        body: JSON.stringify({ operations: remaining.map(({ opId, type, payload, createdAt }) => ({
           op_id: opId,
           type,
           payload,
           cree_le_client: createdAt
         })) })
       });
-      await Promise.all(pending.map((operation) => removeOperation(operation.id)));
+      await Promise.all(remaining.map((operation) => removeOperation(operation.id)));
     }
 
     const since = (await localDb.syncMeta.get('serverSeq'))?.value || 0;

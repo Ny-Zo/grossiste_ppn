@@ -11,6 +11,7 @@ export function useOnlineStatus() {
     };
     window.addEventListener('online', update);
     window.addEventListener('offline', update);
+    if (navigator.onLine) synchronize().catch(() => {});
     return () => {
       window.removeEventListener('online', update);
       window.removeEventListener('offline', update);
