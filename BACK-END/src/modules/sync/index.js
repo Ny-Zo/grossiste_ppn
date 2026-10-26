@@ -1,0 +1,1 @@
+module.exports = require('../notImplemented')('synchronisation hors ligne');
